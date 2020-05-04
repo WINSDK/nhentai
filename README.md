@@ -3,6 +3,7 @@ It's a literally web scraper that collections and sorts all of the anime porn on
 
  #### _make sure to run the executable within the upper directory_
 
+ #### multithreaded branch
 
 ## Requirements:
 [BeautifulSoup](https://pypi.org/project/bs4)
