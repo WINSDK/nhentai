@@ -1,5 +1,6 @@
+#!/usr/bin/python3
+from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
-import concurrent.futures
 import requests
 import shutil
 import time
@@ -7,18 +8,19 @@ import re
 import os
 
 class handler:
-    def __init__(self, ThrdID, upload, path):
+    def __init__(self, ThrdID, path):
         self.ThrdID = ThrdID
-        self.upload = upload
         self.path   = path
+        self.upload = upload
 
-    def update(self):
+    def update(self, upload):
         self.upload              = self.ThrdID + self.upload
-        DojinDir, totPage, title = self.mainPage()
+        DojinDir, totPage, title = self.mainPage(upload)
         self.subPage(DojinDir, totPage, title)
 
-    def mainPage(self):
-        url = f'https://nhentai.net/g/{self.upload}/1'
+    @staticmethod
+    def mainPage(upload):
+        url = f'https://nhentai.net/g/{upload}/1'
         resp = requests.get(url)
         soup = BeautifulSoup(resp.content, "lxml")
 
@@ -26,37 +28,37 @@ class handler:
         title = re.sub(r'-.*', "", tit.contents[0])
 
         info = soup.findAll('script')
-        totPage = re.search('num_pages\":(.*)},', str(info))
+        num = re.search('num_pages\":(.*)},', str(info))
 
         try:
             body = soup.find('section', attrs={"id": "image-container"}).findChild('img')
-            DojinDir = body['src'][:-5]
-            return DojinDir, totPage.group(1), title
+            dir = body['src'][:-5]
+            return dir, num.group(1), title
         except:
             if title == "503 Service Temporarily Unavailable":
-                time.sleep(2)
                 print(title)
+                time.sleep(2)
+                return 0, 0, 0 # returns an error to retry the request
             else:
                 print("Unknown Error Occurred")
-            return 
 
-    def subPage(self, DojinDir, totPage, title):
+    @staticmethod
+    def subPage(dir, num, title):
         pagenum = 1
         try:
-            os.mkdir(f'{self.path}/{title}')
+            os.mkdir(f'{path}/{title}')
         except:
             print("Doujinshi already downloaded")
             return
-        print(f'Number of pages: {totPage} - Name: {title}')
+        print(f'Number of pages: {num} - Name: {title}')
 
-        if requests.get(f'{DojinDir}{pagenum}.jpg').status_code != 200:
-            print(f'Some generic error occurred. - {DojinDir}')
-            shutil.rmtree(f'{self.path}/{title}')
+        if requests.get(f'{dir}{pagenum}.jpg').status_code != 200:
+            shutil.rmtree(f'{path}/{title}')
             return
 
-        while requests.get(f'{DojinDir}{pagenum}.jpg').status_code == 200:
-            resp = requests.get(f'{DojinDir}{pagenum}.jpg')
-            with open(f'{self.path}/{title}/{pagenum}.jpg', 'wb') as fileout:
+        while requests.get(f'{dir}{pagenum}.jpg').status_code == 200:
+            resp = requests.get(f'{dir}{pagenum}.jpg')
+            with open(f'{path}/{title}/{pagenum}.jpg', 'wb') as fileout:
                 fileout.write(resp.content)
             pagenum += 1
 
@@ -65,14 +67,13 @@ if __name__ == '__main__':
     path  = "test"
     
     if os.path.exists(path):
-        print("Directory Already Exists, appending current Dir")
+        print("directory Already Exists, appending current dir")
     else:
         os.mkdir(path)
     if Thrds < 1:
         raise TypeError
 
-    for upload in range(1, 300000, Thrds): # Data value for number of doujinshi to loop through
-        with concurrent.futures.ThreadPoolExecutor(max_workers=Thrds-1) as executor:
-            for index in range(Thrds):
-                handle = handler(index, upload, path)
-                executor.submit(handle.update())
+    pool = ThreadPoolExecutor(max_workers=Thrds*5) # Generates 5 threads per physical/virtual core
+    for upload in range(1, 300000, Thrds*5):
+        pool.submit(handler(Thrds, path).update(upload), upload)
+    pool.shutdown
