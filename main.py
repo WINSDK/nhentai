@@ -1,11 +1,12 @@
 from bs4 import BeautifulSoup
+import concurrent.futures
 import requests
 import shutil
 import time
 import re
 import os
 
-filepath = "target"
+filepath = "test"
 
 if os.path.exists(filepath):
     #shutil.rmtree(filepath)
@@ -14,14 +15,14 @@ if os.path.exists(filepath):
 else:
     os.mkdir(filepath)
 
-def main():
-    for upload in range(1, 310717): # Data value for number of doujinshi to loop through
-        out = mainPage(upload)
-        if out[1] != 0:
-            subPage(out[0], out[1], out[2])
-        else:
-            time.sleep(3)
-            pass
+def main(ThrdID, upload):
+    upload = ThrdID + upload
+    out = mainPage(upload)
+    if out[1] != 0:
+        subPage(out[0], out[1], out[2])
+    else:
+        time.sleep(3)
+        pass
 
 def mainPage(upload):
     url = f'https://nhentai.net/g/{upload}/1'
@@ -68,4 +69,11 @@ def subPage(DojinDir, totPage, title):
         pagenum += 1
 
 if __name__ == '__main__':
-    main()
+    Thrds = int(input("Input number of concurrent threads: "))
+    if Thrds < 1:
+        raise TypeError
+
+    for upload in range(1, 310717, Thrds): # Data value for number of doujinshi to loop through
+        for index in range(Thrds-1):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=Thrds) as executor:
+                executor.submit(main, index, upload)
