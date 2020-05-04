@@ -16,10 +16,9 @@ else:
 
 def main():
     for upload in range(1, 310717): # Data value for number of doujinshi to loop through
-        upload += 1
         out = mainPage(upload)
         if out[1] != 0:
-            pagenum = subPage(out[0], out[1], out[2])
+            subPage(out[0], out[1], out[2])
         else:
             time.sleep(3)
             pass
@@ -40,7 +39,10 @@ def mainPage(upload):
         DojinDir = body['src'][:-5]
         return DojinDir, totPage.group(1), title
     except:
-        print(title)
+        if title == "503 Service Temporarily Unavailable":
+            print(title)
+        else:
+            print("Unknown Error Occurred")
         Success = 0
         return title, Success
 
@@ -51,19 +53,19 @@ def subPage(DojinDir, totPage, title):
         os.mkdir(f'{filepath}/{title}')
     except:
         print("Doujinshi already downloaded")
-        pagenum += 1
         return
     print(f'Number of pages: {totPage} - Name: {title}')
+
+    if requests.get(f'{DojinDir}{pagenum}.jpg').status_code != 200:
+        print(f'Some generic error occurred. - {DojinDir}')
+        shutil.rmtree(f'{filepath}/{title}')
+        return
 
     while requests.get(f'{DojinDir}{pagenum}.jpg').status_code == 200:
         resp = requests.get(f'{DojinDir}{pagenum}.jpg')
         with open(f'{filepath}/{title}/{pagenum}.jpg', 'wb') as fileout:
             fileout.write(resp.content)
         pagenum += 1
-        
-    if requests.get(f'{DojinDir}{pagenum}.jpg').status_code == 404 or 403:
-        print(f'Some generic error occurred. - g/{pagenum}/')
-        shutil.rmtree(f'{filepath}/{title}')
 
 if __name__ == '__main__':
     main()
